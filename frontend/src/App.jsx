@@ -1,27 +1,29 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Play, Cpu, Zap, Activity } from "lucide-react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Play, Cpu, Activity, AlertTriangle, Zap, Server } from 'lucide-react';
 
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
+// Fungsi utilitas sederhana untuk menggabungkan class Tailwind
+const cn = (...classes) => classes.filter(Boolean).join(' ');
 
-function TaskBlock({ task }) {
-  // Height dynamic to weight
-  const h = task.weight <= 15 ? 'h-4' : (task.weight > 25 ? 'h-8' : 'h-6');
+// ==========================================
+// KOMPONEN 1: BALOK TUGAS (TASK BLOCK)
+// ==========================================
+function TaskBlock({ task, isOverloaded }) {
+  const h = task.weight <= 15 ? 'h-5' : (task.weight > 30 ? 'h-10' : 'h-7');
+  
   return (
     <motion.div
       layoutId={`task-${task.id}`}
-      initial={{ opacity: 0, y: 50, scale: 0.8 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 90, damping: 20 }}
+      initial={{ opacity: 0, y: 50, scale: 0.5 }} // Muncul dari bawah
+      animate={{ opacity: 1, y: 0, scale: 1 }}    // Melayang ke atas
+      transition={{ type: "spring", stiffness: 100, damping: 15 }}
       className={cn(
-        "w-10 bg-cyan-400 rounded-[2px] shadow-[0_0_8px_rgba(34,211,238,0.6)] flex items-center justify-center text-[10px] text-cyan-950 font-bold",
+        "w-full rounded-[3px] flex items-center justify-center text-[10px] font-bold shadow-md transition-colors z-10 relative",
         h,
-        "border border-cyan-300"
+        isOverloaded 
+          ? "bg-red-500 text-red-100 border border-red-300 shadow-[0_0_8px_rgba(239,68,68,0.8)]" 
+          : "bg-cyan-400 text-cyan-950 border border-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.6)]"
       )}
     >
       {task.weight}
@@ -29,219 +31,239 @@ function TaskBlock({ task }) {
   );
 }
 
+// ==========================================
+// KOMPONEN 2: RAK SERVER (ANTIGRAVITASI)
+// ==========================================
 function ServerContainer({ server, isActive, stage }) {
   const isOverloaded = server.used > server.capacity;
   
   return (
-    <div className={cn(
-      "w-16 h-[300px] border-t-4 border-l-2 border-r-2 border-b-0 rounded-t-md relative flex flex-col items-center p-1 gap-1 overflow-visible transition-colors duration-500",
-      isActive && !isOverloaded ? "border-cyan-500 bg-cyan-950/30 shadow-[0_4px_20px_-2px_theme(colors.cyan.500)]" : "",
-      isActive && isOverloaded ? "border-red-500 bg-red-950/30 shadow-[0_4px_20px_-2px_theme(colors.red.500)]" : "",
-      !isActive ? "border-slate-800 bg-slate-900/40" : ""
-    )}>
-      {/* Container header / indicator */}
-      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] whitespace-nowrap text-slate-400 flex items-center justify-center gap-1">
-         <Cpu className={cn("w-3 h-3", isActive ? (isOverloaded ? "text-red-400" : "text-cyan-400") : "text-slate-600")} />
+    <div className="flex flex-col items-center gap-2">
+      {/* Label & Indikator Server (Pindah ke Atas karena wadah menghadap bawah) */}
+      <div className="flex flex-col items-center justify-center bg-slate-900/90 px-2 py-1.5 rounded-lg border border-slate-700 w-full shadow-lg z-20">
+         <div className="flex items-center gap-1 mb-1">
+             {isOverloaded ? (
+                 <AlertTriangle className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+             ) : (
+                 <Cpu className={cn("w-3.5 h-3.5", isActive ? "text-cyan-400" : "text-slate-600")} />
+             )}
+             <span className="text-[11px] font-bold text-slate-300">S-{server.id}</span>
+         </div>
          <span className={cn(
-            isActive ? (isOverloaded ? "text-red-400 font-bold" : "text-cyan-400 font-bold") : ""
+            "text-[9px] px-1.5 py-0.5 rounded font-mono",
+            isActive 
+              ? (isOverloaded ? "bg-red-500/20 text-red-400 font-bold" : "bg-cyan-500/20 text-cyan-400 font-bold") 
+              : "text-slate-500"
          )}>
             {server.used}/{server.capacity}
          </span>
       </div>
 
-      {stage === 'allocated' && server.tasks?.map(task => (
-        <TaskBlock key={task.id} task={task} />
-      ))}
+      {/* Wadah Server Terbalik (Menggantung dari atas, terbuka di bawah) */}
+      <div className={cn(
+        "w-14 h-[220px] border-t-4 border-l-2 border-r-2 border-b-0 rounded-t-xl relative flex flex-col items-center p-1 gap-[2px] overflow-visible transition-all duration-500",
+        isActive && !isOverloaded ? "border-cyan-500 bg-cyan-950/30 shadow-[0_-10px_30px_-5px_theme(colors.cyan.500)]" : "",
+        isActive && isOverloaded ? "border-red-500 bg-red-950/30 shadow-[0_-10px_30px_-5px_theme(colors.red.500)]" : "",
+        !isActive ? "border-slate-700 bg-slate-800/40 opacity-50" : ""
+      )}>
+        {/* Garis batas kapasitas maksimal */}
+        <div className="absolute bottom-0 left-0 w-full border-b border-dashed border-slate-500/50"></div>
+        
+        {/* Render Tugas jika stage == allocated */}
+        {stage === 'allocated' && server.tasks?.map(task => (
+          <TaskBlock key={task.id} task={task} isOverloaded={isOverloaded} />
+        ))}
+      </div>
     </div>
   );
 }
 
-function CustomTooltip({ active, payload, label }) {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
-        <p className="text-slate-300 text-sm">{`${label} Algorithm`}</p>
-        <p className="text-cyan-400 font-bold">{`Energy: ${payload[0].value} kWh`}</p>
-        <p className="text-purple-400 font-bold">{`Active Servers: ${payload[0].payload.servers}`}</p>
-      </div>
-    );
-  }
-  return null;
-}
-
+// ==========================================
+// APLIKASI UTAMA (DASHBOARD)
+// ==========================================
 export default function App() {
-  const [numTasks, setNumTasks] = useState(50);
+  const [numTasks, setNumTasks] = useState(60);
   const [serverCapacity, setServerCapacity] = useState(100);
+  const [numServers, setNumServers] = useState(15);
   
-  const [simData, setSimData] = useState(null);
-  const [viewMode, setViewMode] = useState('standard'); // 'standard' or 'greedy'
-  const [stage, setStage] = useState('idle'); // 'idle' -> 'spawning' -> 'allocated'
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [dynamicData, setDynamicData] = useState(null);
+  const [staticData, setStaticData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState('idle');
+  const [viewMode, setViewMode] = useState('greedy'); 
 
-  // Clear data if inputs change
-  useEffect(() => {
-    setSimData(null);
+  // Menjalankan 2 API sekaligus (Untuk Grafik & Untuk Visualisasi)
+  const jalankanSimulasi = async () => {
+    setLoading(true);
     setStage('idle');
-  }, [numTasks, serverCapacity]);
-
-  const handleSimulate = async () => {
-    setIsSimulating(true);
-    setSimData(null);
-    setStage('idle');
-    
     try {
-      const res = await fetch("http://localhost:8000/api/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ num_tasks: numTasks, server_capacity: serverCapacity })
+      const payload = { num_tasks: numTasks, server_capacity: serverCapacity, num_servers: numServers };
+
+      // 1. Ambil data deret waktu untuk grafik dan KPI
+      const resDyn = await fetch('http://localhost:8000/api/simulate-dynamic', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      const dataDyn = await resDyn.json();
+
+      // 2. Ambil data statis puncak untuk visualisasi wadah
+      const resStat = await fetch('http://localhost:8000/api/simulate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      const dataStat = await resStat.json();
+
+      setDynamicData(dataDyn);
+      setStaticData(dataStat);
       
-      setSimData(data);
+      // Memicu animasi antigravitasi
       setStage('spawning');
-      
-      // Delay to let tasks spawn at the bottom
       setTimeout(() => {
         setStage('allocated');
-        setIsSimulating(false);
-      }, 1500); // 1.5 second cinematic delay
-      
-    } catch (e) {
-      console.error(e);
-      alert("Error connecting to backend API. Is it running?");
-      setIsSimulating(false);
+        setLoading(false);
+      }, 500); 
+
+    } catch (error) {
+      console.error(error);
+      alert("Gagal menghubungi backend! Pastikan uvicorn main:app sudah berjalan.");
+      setLoading(false);
     }
   };
 
-  const chartData = simData ? [
-    { name: 'Standard (Round-Robin)', energy: simData.standard.energy_consumed, servers: simData.standard.active_servers },
-    { name: 'Modified (Greedy FFD)', energy: simData.greedy.energy_consumed, servers: simData.greedy.active_servers },
-  ] : [];
-
-  const currentServers = simData ? simData[viewMode].servers : Array.from({length: 15}).map((_, i) => ({ id: i+1, capacity: 100, used: 0, tasks: [] }));
+  const currentServers = staticData 
+    ? staticData[viewMode].servers 
+    : Array.from({length: numServers}).map((_, i) => ({ id: i+1, capacity: serverCapacity, used: 0, tasks: [] }));
 
   return (
-    <div className="h-screen w-screen bg-slate-950 flex flex-col text-slate-100 overflow-hidden font-sans">
-      
-      {/* Top Panel */}
-      <header className="h-20 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md flex items-center px-8 justify-between shrink-0 z-20">
-        <div className="flex items-center gap-3">
-          <Activity className="w-8 h-8 text-cyan-400" />
-          <div>
-            <h1 className="text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
-               NEBULA SCHEDULER
-            </h1>
-            <p className="text-xs text-slate-400 tracking-widest uppercase">Energy-Aware Anti-Gravity Simulator</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-             <label className="text-sm text-slate-400 uppercase tracking-widest">Tasks</label>
-             <input type="number" className="w-16 bg-slate-800 border border-slate-700 text-center rounded py-1 px-2 text-cyan-400 font-mono outline-none focus:border-cyan-500" value={numTasks} onChange={e => setNumTasks(Number(e.target.value))} />
-          </div>
-          <div className="flex items-center gap-2">
-             <label className="text-sm text-slate-400 uppercase tracking-widest">Cap</label>
-             <input type="number" className="w-20 bg-slate-800 border border-slate-700 text-center rounded py-1 px-2 text-cyan-400 font-mono outline-none focus:border-cyan-500" value={serverCapacity} onChange={e => setServerCapacity(Number(e.target.value))} />
-          </div>
-          
-          <button 
-            onClick={handleSimulate} 
-            disabled={isSimulating}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold rounded-full shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all active:scale-95 disabled:opacity-50"
-          >
-            {isSimulating ? <Cpu className="animate-spin w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
-            RUN SIMULATION
-          </button>
-        </div>
-      </header>
-
-      {/* Main Visualizer Area */}
-      <main className="flex-1 relative flex flex-col pt-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans overflow-x-hidden">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* View Mode Toggle */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-slate-800 p-1 rounded-full shadow-xl border border-slate-700">
-           <button 
-             className={cn("px-4 py-1 rounded-full text-xs font-bold tracking-widest transition-all focus:outline-none", viewMode === 'standard' ? "bg-cyan-500/20 text-cyan-400 shadow-[inset_0_0_10px_rgba(34,211,238,0.2)]" : "text-slate-400 hover:text-slate-200")}
-             onClick={() => setViewMode('standard')}
-           >
-             STANDARD (RR)
-           </button>
-           <button 
-             className={cn("px-4 py-1 rounded-full text-xs font-bold tracking-widest transition-all focus:outline-none", viewMode === 'greedy' ? "bg-purple-500/20 text-purple-400 shadow-[inset_0_0_10px_rgba(168,85,247,0.2)]" : "text-slate-400 hover:text-slate-200")}
-             onClick={() => setViewMode('greedy')}
-           >
-             MODIFIED GREEDY (FFD)
-           </button>
-        </div>
-
-        {/* Server Mounts (Ceiling) */}
-        <div className="flex justify-center gap-2 w-full px-4 mt-8 flex-wrap">
-           {currentServers.map(server => (
-             <ServerContainer key={server.id} server={server} isActive={server.used > 0} stage={stage} />
-           ))}
-        </div>
-
-        {/* Spawn Pad (Bottom) */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-wrap-reverse justify-center content-start w-1/2 max-h-[150px] overflow-visible gap-1.5 p-4 border-b border-cyan-500/30 shadow-[0_20px_20px_-20px_rgba(34,211,238,0.3)]">
-          <div className="absolute -bottom-6 text-[10px] text-cyan-500/50 font-mono tracking-widest uppercase flex items-center gap-2">
-             <Zap className="w-3 h-3" />
-             Task Spawn Matrix
-             <Zap className="w-3 h-3" />
+        {/* HEADER & KONTROL */}
+        <header className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 z-30 relative">
+          <div className="flex items-center gap-4">
+             <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.2)]">
+                <Activity className="w-8 h-8 text-cyan-400" />
+             </div>
+             <div>
+               <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Cloud <span className="text-cyan-400">GreenSim</span></h1>
+               <p className="text-xs md:text-sm text-slate-400">Integrated Energy Optimization Dashboard</p>
+             </div>
           </div>
-          {stage === 'spawning' && simData && simData.tasks.map(task => (
-            <TaskBlock key={`pool-${task.id}`} task={task} />
-          ))}
+
+          <div className="flex flex-wrap items-center gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
+             <div className="flex flex-col px-2">
+                <label className="text-[10px] text-slate-500 font-bold uppercase mb-1">Total Tugas</label>
+                <input type="number" className="w-16 bg-transparent text-white font-mono font-bold outline-none border-b border-slate-700 focus:border-cyan-500" value={numTasks} onChange={e => setNumTasks(Number(e.target.value))} />
+             </div>
+             <div className="w-px h-8 bg-slate-800"></div>
+             <div className="flex flex-col px-2">
+                <label className="text-[10px] text-slate-500 font-bold uppercase mb-1">Kapasitas</label>
+                <input type="number" className="w-16 bg-transparent text-white font-mono font-bold outline-none border-b border-slate-700 focus:border-cyan-500" value={serverCapacity} onChange={e => setServerCapacity(Number(e.target.value))} />
+             </div>
+             <div className="w-px h-8 bg-slate-800"></div>
+             <div className="flex flex-col px-2">
+                <label className="text-[10px] text-slate-500 font-bold uppercase mb-1">Jml Server</label>
+                <input type="number" className="w-16 bg-transparent text-white font-mono font-bold outline-none border-b border-slate-700 focus:border-cyan-500" value={numServers} onChange={e => setNumServers(Number(e.target.value))} />
+             </div>
+             
+             <button 
+               onClick={jalankanSimulasi} 
+               disabled={loading}
+               className="ml-2 flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(8,145,178,0.4)] transition-all active:scale-95 disabled:opacity-50"
+             >
+               {loading ? <Cpu className="animate-spin w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+               MULAI
+             </button>
+          </div>
+        </header>
+
+        {/* METRIK KPI */}
+        {dynamicData && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+            <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 border-l-4 border-l-yellow-500 shadow-lg">
+              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><Server className="w-4 h-4 text-yellow-500"/> Standard (Round-Robin)</h3>
+              <p className="text-3xl font-bold text-yellow-400">{dynamicData.kpi_metrics.total_standard_energy} <span className="text-sm font-medium text-yellow-500/70">kWh</span></p>
+              <p className="text-xs text-slate-500 mt-2">Puncak: <span className="text-slate-300 font-bold">{dynamicData.kpi_metrics.peak_standard_servers}</span> Server Aktif</p>
+            </div>
+            <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 border-l-4 border-l-green-500 shadow-lg">
+              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-green-500"/> Modified Greedy</h3>
+              <p className="text-3xl font-bold text-green-400">{dynamicData.kpi_metrics.total_greedy_energy} <span className="text-sm font-medium text-green-500/70">kWh</span></p>
+              <p className="text-xs text-slate-500 mt-2">Puncak: <span className="text-slate-300 font-bold">{dynamicData.kpi_metrics.peak_greedy_servers}</span> Server Aktif</p>
+            </div>
+            <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 border-l-4 border-l-cyan-500 shadow-lg">
+              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-cyan-500"/> Efisiensi Daya</h3>
+              <p className="text-3xl font-bold text-cyan-400">
+                {dynamicData.kpi_metrics.total_standard_energy === 0 ? 0 : 
+                 Math.round(((dynamicData.kpi_metrics.total_standard_energy - dynamicData.kpi_metrics.total_greedy_energy) / dynamicData.kpi_metrics.total_standard_energy) * 100)}%
+              </p>
+              <p className="text-xs text-slate-500 mt-2">Utilisasi Server: <span className="text-slate-300 font-bold">{dynamicData.kpi_metrics.avg_greedy_utilization}%</span></p>
+            </div>
+          </div>
+        )}
+
+        {/* VISUALISASI RAK SERVER ANTIGRAVITASI */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+           <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-800 pb-4">
+              <div>
+                 <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">Visualisasi Topologi <span className="text-xs bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded ml-2">Antigravity Simulation</span></h2>
+                 <p className="text-xs text-slate-500 mt-1">Simulasi bagaimana tugas dikelompokkan ke dalam wadah server fisik saat beban puncak.</p>
+              </div>
+              
+              {/* Toggle Mode Standar vs Greedy */}
+              <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 mt-4 md:mt-0">
+                 <button 
+                   className={cn("px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2", viewMode === 'standard' ? "bg-slate-800 text-white" : "text-slate-500")}
+                   onClick={() => setViewMode('standard')}
+                 >
+                   <div className={cn("w-1.5 h-1.5 rounded-full", viewMode === 'standard' ? "bg-yellow-400" : "bg-slate-700")}></div>
+                   Standard
+                 </button>
+                 <button 
+                   className={cn("px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2", viewMode === 'greedy' ? "bg-slate-800 text-white" : "text-slate-500")}
+                   onClick={() => setViewMode('greedy')}
+                 >
+                   <div className={cn("w-1.5 h-1.5 rounded-full", viewMode === 'greedy' ? "bg-green-400" : "bg-slate-700")}></div>
+                   Greedy FFD
+                 </button>
+              </div>
+           </div>
+
+           {/* Area Rak Server (Otomatis menyesuaikan jumlah) */}
+           <div className="flex justify-center gap-3 w-full flex-wrap min-h-[280px]">
+              {currentServers.map(server => (
+                <ServerContainer key={server.id} server={server} isActive={server.used > 0} stage={stage} />
+              ))}
+           </div>
+           
+           {/* Hiasan Cloud Base di Bawah */}
+           <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-slate-950 to-transparent z-0 pointer-events-none"></div>
         </div>
-      </main>
 
-      {/* Bottom Panel (Charts & Stats) */}
-      <footer className="h-48 border-t border-slate-800 bg-slate-900/90 shrink-0 z-20 flex p-6 gap-8">
-         <div className="flex-1 max-w-sm flex flex-col justify-center gap-4">
-            <h3 className="text-sm font-bold tracking-wider text-slate-300 uppercase shrink-0">Energy Summary</h3>
-            {simData ? (
-               <div className="flex flex-col gap-3">
-                 <div className="flex justify-between items-center bg-slate-800/80 p-2 px-4 rounded border border-slate-700">
-                    <p className="text-xs text-slate-400">Standard (Round-Robin)</p>
-                    <div className="flex items-end gap-1">
-                       <span className="text-xl font-bold text-cyan-400">{simData.standard.energy_consumed}</span>
-                       <span className="text-[10px] text-cyan-400/50 mb-1">kWh</span>
-                    </div>
-                 </div>
-                 <div className="flex justify-between items-center bg-purple-900/10 p-2 px-4 rounded border border-purple-500/30">
-                    <p className="text-xs text-purple-400/80">Modified (Greedy FFD)</p>
-                    <div className="flex items-end gap-1">
-                       <span className="text-xl font-bold text-purple-400">{simData.greedy.energy_consumed}</span>
-                       <span className="text-[10px] text-purple-400/50 mb-1">kWh</span>
-                    </div>
-                 </div>
-               </div>
-            ) : (
-               <div className="flex-1 flex items-center justify-center border border-dashed border-slate-700/50 rounded text-slate-500 text-xs">
-                  Run simulation to view summary.
-               </div>
-            )}
-         </div>
+        {/* GRAFIK TIME SERIES */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+           <h2 className="text-lg font-bold text-slate-200 mb-1">Grafik Konsumsi Energi Time-Series</h2>
+           <p className="text-xs text-slate-500 mb-6">Perbandingan penggunaan daya listrik (kWh) seiring berjalannya simulasi waktu.</p>
+           
+           <div className="h-80 w-full">
+             {dynamicData ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dynamicData.timeline_data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="time" stroke="#475569" tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <YAxis stroke="#475569" tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff', borderRadius: '8px' }} itemStyle={{ fontWeight: 'bold' }} />
+                    <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '13px' }} />
+                    <Line type="monotone" dataKey="standard_energy" name="Standard (Round-Robin)" stroke="#eab308" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="greedy_energy" name="Greedy (Energy-Aware)" stroke="#22c55e" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+             ) : (
+                <div className="h-full w-full flex items-center justify-center border border-dashed border-slate-700 rounded-xl bg-slate-950/50">
+                   <p className="text-slate-500 text-sm">Tekan tombol MULAI untuk menggambar grafik.</p>
+                </div>
+             )}
+           </div>
+        </div>
 
-         <div className="flex-1 h-full bg-slate-800/30 rounded border border-slate-700/50 p-2">
-            {simData ? (
-               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis dataKey="name" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <YAxis stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1e293b' }} />
-                    <Legend wrapperStyle={{ paddingTop: '5px', fontSize: '12px' }} />
-                    <Bar dataKey="energy" name="Energy Consumed (kWh)" fill="#22d3ee" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-               </ResponsiveContainer>
-            ) : (
-               <div className="h-full flex items-center justify-center text-slate-500 text-xs">
-                  Chart offline. Waiting for data...
-               </div>
-            )}
-         </div>
-      </footer>
+      </div>
     </div>
   );
 }
